@@ -2,7 +2,7 @@
 
 # --- 变量设置 ---
 # 容器名称
-CONTAINER_NAME="my-mysql-"
+CONTAINER_NAME="my-mysql"
 # MySQL Docker Hub 官方 LTS 标签
 IMAGE_TAG="mysql:lts"
 # Root 用户密码（!!! 请务必修改为复杂密码 !!!）
