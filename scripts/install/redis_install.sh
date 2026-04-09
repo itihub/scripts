@@ -39,10 +39,10 @@ done
 # ================= 配置区 =================
 REDIS_VER="7.2.4"
 
-INSTALL_DIR="/app/redis/install"
-SRC_DIR="/app/redis/src"
+INSTALL_DIR="/app/redis"
+SRC_DIR="/app/redis-build/src"
 CONF_DIR="${INSTALL_DIR}/conf"
-DATA_DIR="/app/redis/data"
+DATA_DIR="/app/redis-build/data"
 
 # 网络与安全配置
 REDIS_PORT="6379"
@@ -164,7 +164,7 @@ if [ "$SKIP_COMPILE" = false ]; then
         cd $(dirname ${INSTALL_DIR})
         
         # 将已编译和配置好的程序主目录打包
-        tar -zcvf ${PORTABLE_PKG} --transform 's/^install/redis/' $(basename ${INSTALL_DIR})
+        tar -zcvf ${PORTABLE_PKG} $(basename ${INSTALL_DIR})
         
         echo ">>> ----------------------------------------------------"
         echo ">>> 打包完成！离线便携包已生成至：${PORTABLE_PKG}"

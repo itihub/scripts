@@ -42,8 +42,8 @@ PCRE_VER="10.42"
 OPENSSL_VER="3.3.0"
 ZLIB_VER="1.3.1"
 
-INSTALL_DIR="/app/nginx/install"
-SRC_DIR="/app/nginx/src"
+INSTALL_DIR="/app/nginx"
+SRC_DIR="/app/nginx-build/src"
 
 # 服务控制配置
 SKIP_SERVICE_SETUP="true" # 设置为 "true" 则跳过 Systemd 注册与自动启动
@@ -142,7 +142,7 @@ if [ "$SKIP_COMPILE" = false ]; then
         cd $(dirname ${INSTALL_DIR})
         
         # 将已编译和配置好的程序主目录打包
-        tar -zcvf ${PORTABLE_PKG} --transform 's/^install/nginx/' $(basename ${INSTALL_DIR})
+        tar -zcvf ${PORTABLE_PKG} $(basename ${INSTALL_DIR})
         
         echo ">>> ----------------------------------------------------"
         echo ">>> 打包完成！离线便携包已生成至：${PORTABLE_PKG}"
