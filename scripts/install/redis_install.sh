@@ -22,17 +22,17 @@ done
 # ================= 配置区 =================
 REDIS_VER="7.2.4"
 
-INSTALL_DIR="/app/my_redis"
-SRC_DIR="/app/redis-build/src"
+INSTALL_DIR="/app/redis/install"
+SRC_DIR="/app/redis/src"
 CONF_DIR="${INSTALL_DIR}/conf"
-DATA_DIR="/data/redis"
+DATA_DIR="/app/redis/data"
 
 # 网络与安全配置
 REDIS_PORT="6379"
 REDIS_PASS="" # 设置为空 ("") 则不开启密码验证
 
 # 服务控制配置
-SKIP_SERVICE_SETUP="false" # 设置为 "true" 则跳过 Systemd 注册与自动启动
+SKIP_SERVICE_SETUP="true" # 设置为 "true" 则跳过 Systemd 注册与自动启动
 
 # 运行用户与用户组配置
 RUN_USER="redis"
@@ -208,3 +208,4 @@ else
         fi
         echo ">>> 安装并启动完成！"
     fi
+fi

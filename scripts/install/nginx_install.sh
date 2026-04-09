@@ -25,11 +25,11 @@ PCRE_VER="10.42"
 OPENSSL_VER="3.3.0"
 ZLIB_VER="1.3.1"
 
-INSTALL_DIR="/app/my_nginx"
-SRC_DIR="/app/nginx-build/src"
+INSTALL_DIR="/app/nginx/install"
+SRC_DIR="/app/nginx/src"
 
 # 服务控制配置
-SKIP_SERVICE_SETUP="false" # 设置为 "true" 则跳过 Systemd 注册与自动启动
+SKIP_SERVICE_SETUP="true" # 设置为 "true" 则跳过 Systemd 注册与自动启动
 
 # 运行用户与用户组配置
 RUN_USER="nginx"
@@ -128,7 +128,7 @@ chown -R ${RUN_USER}:${RUN_GROUP} ${INSTALL_DIR}
 echo ">>> [6/7] 配置服务管理机制..."
 if [ "$SKIP_SERVICE_SETUP" = "true" ]; then
     echo ">>> 配置指定了 SKIP_SERVICE_SETUP=true，已跳过服务注册。"
-else [ "$HAS_SYSTEMD" = true ]; then
+elif [ "$HAS_SYSTEMD" = true ]; then
     cat > /usr/lib/systemd/system/nginx.service << EOF
 [Unit]
 Description=The NGINX HTTP and reverse proxy server
@@ -174,3 +174,4 @@ else
         fi
         echo ">>> 安装并启动完成！"
     fi
+fi
