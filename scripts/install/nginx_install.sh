@@ -6,15 +6,32 @@
 # 放置在下方配置区中 SRC_DIR 变量所指定的目录下，脚本将自动跳过下载直接使用。
 #
 # 【仅下载模式】：执行脚本时带上 --download-only 或 -d 参数，将仅下载源码包到 SRC_DIR 并退出。
+# 【便携打包模式】：执行带上 --portable 或 -p 参数，编译配置完成后将直接打包成绿色可移植包并退出。
 
 set -e # 遇到错误立即退出
 
+# ================= 帮助信息函数 =================
+show_help() {
+    echo "用法: bash nginx_install.sh [选项]"
+    echo ""
+    echo "选项:"
+    echo "  -h, --help           显示此帮助信息并退出"
+    echo "  -d, --download-only  仅下载模式：仅下载源码包到配置的 SRC_DIR 目录并退出"
+    echo "  -p, --portable       便携打包模式：编译配置完成后直接生成绿色可移植包 (.tar.gz) 并退出"
+    echo ""
+    echo "如果不带任何参数执行，脚本将按默认流程完成下载、编译、安装、系统服务注册及进程启动。"
+}
+# ==================================================
+
 # ================= 命令行参数解析 =================
 DOWNLOAD_ONLY=false
+BUILD_PORTABLE=false
 while [[ "$#" -gt 0 ]]; do
     case $1 in
+        -h|--help) show_help; exit 0 ;;
         -d|--download-only) DOWNLOAD_ONLY=true; shift ;;
-        *) echo "未知参数: $1" >&2; exit 1 ;;
+        -p|--portable) BUILD_PORTABLE=true; shift ;;
+        *) echo "未知参数 '$1'。请使用 -h 或 --help 查看可用参数。" >&2; exit 1 ;;
     esac
 done
 # ==================================================
@@ -118,6 +135,26 @@ if [ "$SKIP_COMPILE" = false ]; then
       --with-openssl=../openssl-${OPENSSL_VER}
 
     make -j $(nproc) && make install
+
+    if [ "$BUILD_PORTABLE" = true ]; then
+        echo ">>> [4.5/7] 便携打包模式激活：正在生成可移植绿色包..."
+        PORTABLE_PKG="${SRC_DIR}/nginx_portable_$(uname -m)_${NGINX_VER}.tar.gz"
+        cd $(dirname ${INSTALL_DIR})
+        
+        # 将已编译和配置好的程序主目录打包
+        tar -zcvf ${PORTABLE_PKG} --transform 's/^install/nginx/' $(basename ${INSTALL_DIR})
+        
+        echo ">>> ----------------------------------------------------"
+        echo ">>> 打包完成！离线便携包已生成至：${PORTABLE_PKG}"
+        echo ">>> 【离线分发部署指南】："
+        echo ">>> 1. 将此压缩包和本安装脚本拷至目标离线服务器"
+        echo ">>> 2. 在目标服务器创建父目录: mkdir -p $(dirname ${INSTALL_DIR})"
+        echo ">>> 3. 解压绿色便携包: tar -zxvf $(basename ${PORTABLE_PKG}) -C $(dirname ${INSTALL_DIR})"
+        echo ">>> 4. 在目标服务器执行本脚本: bash nginx_install.sh"
+        echo ">>> 此时脚本将跳过编译，直接完成用户装配、权限下发与启动！"
+        echo ">>> ----------------------------------------------------"
+        exit 0
+    fi
 fi
 
 echo ">>> [5/7] 配置运行用户与权限..."
