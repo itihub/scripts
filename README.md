@@ -32,4 +32,6 @@
 首先，将本仓库克隆到您的 WSL 或 Linux 家目录下，建议放在 `~/scripts/`：
 
 ```bash
-git clone [https://github.com/itihub/scripts.git](https://github.com/itihub/scripts.git) ~/scripts
+git clone https://github.com/itihub/scripts.git ~/scripts
+```
+
