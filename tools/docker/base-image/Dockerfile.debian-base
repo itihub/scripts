@@ -1,0 +1,51 @@
+# ==========================
+# 构建命令（根据需要选择）
+# ==========================
+# 1. 构建当前CPU架构版本（本地快速测试）
+# docker build -f Dockerfile.debian-base -t my-debian-base:1.0 .
+
+# 2. 构建单架构 arm64 版本
+# docker buildx build --platform linux/arm64 -f Dockerfile.debian-base -t my-debian-base:1.0 --load .
+
+# 3. 构建多架构（amd64 + arm64）版本
+# docker buildx build --platform linux/amd64,linux/arm64 -f Dockerfile.debian-base -t my-debian-base:1.0 --load .
+
+# ==========================
+# 运行命令
+# ==========================
+# x86_64 运行
+# docker run -d --name my-debian my-debian-base:1.0
+
+# arm64 运行（自动QEMU模拟）
+# docker run -d --name my-debian-arm --platform linux/arm64 my-debian-base:1.0
+
+# 进入容器
+# docker exec -it my-debian bash
+
+FROM debian:bookworm-slim
+
+# 定义环境变量：避免交互式弹窗、设置时区（生产环境必须）
+ENV DEBIAN_FRONTEND=noninteractive \
+    TZ=Asia/Shanghai
+
+# 更新源并安装常用工具
+RUN sed -i "s@deb.debian.org@mirrors.aliyun.com@g" /etc/apt/sources.list && \
+    sed -i "s@security.debian.org@mirrors.aliyun.com@g" /etc/apt/sources.list && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        vim \
+        curl \
+        wget \
+        iputils-ping \
+        net-tools \
+        procps \
+        dnsutils \
+        unzip \
+        zip \
+        git \
+    # 清理缓存，减小镜像体积
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# 默认前台挂起（方便容器一直运行）
+CMD ["sleep", "infinity"]
