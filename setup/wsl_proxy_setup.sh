@@ -36,6 +36,6 @@ fi
 # --- 结束 WSL 代理配置 ---
 
 # 应用方式：在 ~/.bashrc 中引用这个脚本
-# if [ -f "$HOME/scripts/bin/wsl_proxy_setup.sh" ]; then
-#    . "$HOME/scripts/bin/wsl_proxy_setup.sh" # 或者 source "$HOME/scripts/bin/wsl_proxy_setup.sh"
+# if [ -f "$HOME/scripts/setup/wsl_proxy_setup.sh" ]; then
+#    . "$HOME/scripts/setup/wsl_proxy_setup.sh" # 或者 source "$HOME/scripts/setup/wsl_proxy_setup.sh"
 # fi
