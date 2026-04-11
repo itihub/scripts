@@ -1,5 +1,5 @@
 #!/bin/bash
-# Linux 一键生成 Maven 增量更新包 (精确时间戳标记法)
+# Linux 一键生成 Maven 全量/增量更新包 (智能时间戳标记法)
 
 # ================= 配置区 =================
 # 【重要路径说明】
@@ -20,7 +20,6 @@ INCREMENTAL_PATH="$BASE_PATH/incremental"
 DIST_PATH="$BASE_PATH/dist"
 TIMESTAMP_FILE="$BASE_PATH/.last_build_time"
 CURRENT_RUN_TIME_FILE="$BASE_PATH/.current_run_time"
-DAYS=1  # 首次执行时，提取最近 N 天修改的文件默认值
 # =========================================
 
 # ================= 颜色定义 =================
@@ -31,7 +30,14 @@ CYAN='\033[36m'
 NC='\033[0m' # No Color (重置默认颜色)
 # =========================================
 
-echo -e "${CYAN}开始提取增量依赖...${NC}"
+echo -e "${CYAN}开始提取 Maven 依赖...${NC}"
+
+# 0. 检查系统是否安装了必要的 zip 命令
+if ! command -v zip &> /dev/null; then
+    echo -e "${RED}❌ 错误: 当前系统未安装 'zip' 命令！${NC}"
+    echo -e "${YELLOW}💡 提示: CentOS/RHEL 请执行 'sudo yum install zip'，Ubuntu/Debian 请执行 'sudo apt-get install zip' 安装后重试。${NC}"
+    exit 1
+fi
 
 # 1. 检查源目录
 if [ ! -d "$REPOSITORY_PATH" ]; then
@@ -49,16 +55,19 @@ mkdir -p "$DIST_PATH"
 touch "$CURRENT_RUN_TIME_FILE"
 DATE=$(date +%Y%m%d_%H%M%S)
 
-# 3. 确定时间基准并复制增量文件
+# 3. 智能判断全量还是增量
 cd "$REPOSITORY_PATH" || exit
 
 if [ -f "$TIMESTAMP_FILE" ]; then
     echo -e "${YELLOW}检测到上次打包时间戳记录，正在提取新增量文件...${NC}"
+    PREFIX="update"
     # 使用 -newer 查找修改时间晚于时间戳记录的文件并复制（保留目录结构）
     find . -type f -newer "$TIMESTAMP_FILE" -exec cp --parents {} "$INCREMENTAL_PATH" \; 2>/dev/null
 else
-    echo -e "${YELLOW}首次执行(无时间戳记录)，正在扫描最近 $DAYS 天内修改的依赖文件...${NC}"
-    find . -type f -mtime -$DAYS -exec cp --parents {} "$INCREMENTAL_PATH" \; 2>/dev/null
+    echo -e "${YELLOW}首次执行(无时间戳记录)，正在扫描所有依赖进行【全量打包】...${NC}"
+    PREFIX="full"
+    # 查找并复制所有文件
+    find . -type f -exec cp --parents {} "$INCREMENTAL_PATH" \; 2>/dev/null
 fi
 
 # 统计提取出来的文件总数
@@ -83,18 +92,22 @@ if [ "$VALID_FILE_COUNT" -eq 0 ]; then
     exit 0
 fi
 
-# 4. 打包增量包
-ZIP_NAME="update_$DATE.zip"
+# 4. 打包 ZIP 包
+ZIP_NAME="${PREFIX}_${DATE}.zip"
 ZIP_FULL_PATH="$DIST_PATH/$ZIP_NAME"
 
 echo -e "${CYAN}正在打包生成 ZIP 文件...${NC}"
 # 切换到增量目录内部进行打包，防止解压时带入冗余的顶层文件夹路径
 cd "$INCREMENTAL_PATH" || exit
-zip -qr "$ZIP_FULL_PATH" ./*
 
-# 5. 更新增量时间戳标记
-# 将本次运行的基准时间重命名为上次打包时间，供下次使用
-mv -f "$CURRENT_RUN_TIME_FILE" "$TIMESTAMP_FILE"
-
-echo -e "${GREEN}✅ 增量包生成成功：$ZIP_FULL_PATH${NC}"
-echo -e "${CYAN}请将此 ZIP 包传输至内网，并使用 unzip -o 命令覆盖到内网的 repository 目录中。${NC}"
+# 增加打包结果的判断，防止假成功
+if zip -qr "$ZIP_FULL_PATH" .; then
+    # 5. 更新增量时间戳标记
+    mv -f "$CURRENT_RUN_TIME_FILE" "$TIMESTAMP_FILE"
+    echo -e "${GREEN}✅ 打包成功：$ZIP_FULL_PATH${NC}"
+    echo -e "${CYAN}请将此 ZIP 包传输至内网，并使用 unzip -o 命令覆盖到内网的 repository 目录中。${NC}"
+else
+    echo -e "${RED}❌ 错误: ZIP 打包失败！请检查磁盘剩余空间或目录权限。${NC}"
+    rm -f "$CURRENT_RUN_TIME_FILE"
+    exit 1
+fi

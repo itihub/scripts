@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-    Windows 一键生成 Maven 增量更新包 (精确时间戳标记法)
+    Windows 一键生成 Maven 全量/增量更新包 (智能时间戳标记法)
 #>
 
 # ================= 配置区 =================
@@ -21,10 +21,9 @@ $INCREMENTAL_PATH = "$BASE_PATH\incremental"
 $DIST_PATH = "$BASE_PATH\dist"
 $TIMESTAMP_FILE = "$BASE_PATH\.last_build_time"
 $CURRENT_RUN_TIME_FILE = "$BASE_PATH\.current_run_time"
-$DAYS = 1  # 首次执行时，提取最近 N 天修改的文件默认值
 # =========================================
 
-Write-Host "开始提取增量依赖..." -ForegroundColor Cyan
+Write-Host "开始提取 Maven 依赖..." -ForegroundColor Cyan
 
 # 1. 检查源目录
 if (-not (Test-Path $REPOSITORY_PATH)) {
@@ -45,18 +44,17 @@ if (-not (Test-Path $DIST_PATH)) {
 New-Item -Path $CURRENT_RUN_TIME_FILE -ItemType File -Force | Out-Null
 $DATE = (Get-Item $CURRENT_RUN_TIME_FILE).LastWriteTime.ToString("yyyyMMdd_HHmmss")
 
-# 3. 确定时间基准
+# 3. 智能判断全量还是增量
 if (Test-Path $TIMESTAMP_FILE) {
     Write-Host "检测到上次打包时间戳记录，正在提取新增量文件..." -ForegroundColor Yellow
-    # 获取标记文件的最后修改时间
     $RefTime = (Get-Item $TIMESTAMP_FILE).LastWriteTime
+    $ChangedFiles = Get-ChildItem -Path $REPOSITORY_PATH -Recurse -File | Where-Object { $_.LastWriteTime -gt $RefTime }
+    $PREFIX = "update"
 } else {
-    Write-Host "首次执行(无时间戳记录)，正在扫描最近 $DAYS 天内修改的依赖文件..." -ForegroundColor Yellow
-    $RefTime = (Get-Date).AddDays(-$DAYS)
+    Write-Host "首次执行(无时间戳记录)，正在扫描所有依赖进行【全量打包】..." -ForegroundColor Yellow
+    $ChangedFiles = Get-ChildItem -Path $REPOSITORY_PATH -Recurse -File
+    $PREFIX = "full"
 }
-
-# 递归查找所有修改时间晚于基准时间的依赖文件
-$ChangedFiles = Get-ChildItem -Path $REPOSITORY_PATH -Recurse -File | Where-Object { $_.LastWriteTime -gt $RefTime }
 
 if ($null -eq $ChangedFiles -or $ChangedFiles.Count -eq 0) {
     Write-Host "🎉 完美！没有发现需要同步的新增/修改依赖文件。" -ForegroundColor Green
@@ -86,16 +84,16 @@ foreach ($ext in $CleanExtensions) {
     Get-ChildItem -Path $INCREMENTAL_PATH -Filter $ext -Recurse -File -ErrorAction SilentlyContinue | Remove-Item -Force
 }
 
-# 4. 打包增量包
-$ZIP_FULL_PATH = "$DIST_PATH\update_$DATE.zip"
+# 4. 打包 ZIP 包
+$ZIP_FULL_PATH = "$DIST_PATH\${PREFIX}_${DATE}.zip"
 Write-Host "正在打包生成 ZIP 文件..." -ForegroundColor Cyan
 Compress-Archive -Path "$INCREMENTAL_PATH\*" -DestinationPath "$ZIP_FULL_PATH" -Force
 
-# 5. 更新增量时间戳标记
+# 5. 更新时间戳标记
 # 将本次运行的基准时间重命名为上次打包时间，供下次使用
 Move-Item -Path $CURRENT_RUN_TIME_FILE -Destination $TIMESTAMP_FILE -Force
 
-Write-Host "✅ 增量包生成成功：$ZIP_FULL_PATH" -ForegroundColor Green
+Write-Host "✅ 打包成功：$ZIP_FULL_PATH" -ForegroundColor Green
 Write-Host "请将此 ZIP 包传输至内网，并解压覆盖到内网的 repository 目录中。" -ForegroundColor Cyan
 
 Pause
