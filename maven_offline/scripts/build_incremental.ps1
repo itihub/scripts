@@ -3,6 +3,9 @@
     Windows 一键生成 Maven 全量/增量更新包 (智能时间戳标记法)
 #>
 
+# 修复 PowerShell 控制台中文字符重影/双写/乱码的显示问题
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+
 # ================= 配置区 =================
 # 【重要路径说明】
 # 本脚本采用动态相对路径，自动将“脚本所在目录的上一级目录”作为基础工作空间。
@@ -59,6 +62,7 @@ if (Test-Path $TIMESTAMP_FILE) {
 if ($null -eq $ChangedFiles -or $ChangedFiles.Count -eq 0) {
     Write-Host "🎉 完美！没有发现需要同步的新增/修改依赖文件。" -ForegroundColor Green
     Remove-Item $CURRENT_RUN_TIME_FILE -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path $INCREMENTAL_PATH -Recurse -Force -ErrorAction SilentlyContinue
     Pause
     Exit
 }
@@ -84,16 +88,47 @@ foreach ($ext in $CleanExtensions) {
     Get-ChildItem -Path $INCREMENTAL_PATH -Filter $ext -Recurse -File -ErrorAction SilentlyContinue | Remove-Item -Force
 }
 
+# 再次检查清理冗余文件后是否还有有效文件
+$ValidFiles = Get-ChildItem -Path $INCREMENTAL_PATH -Recurse -File
+if ($null -eq $ValidFiles -or $ValidFiles.Count -eq 0) {
+    Write-Host "🎉 清理无用校验文件后，没有需要打包的有效依赖文件。" -ForegroundColor Green
+    Remove-Item $CURRENT_RUN_TIME_FILE -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path $INCREMENTAL_PATH -Recurse -Force -ErrorAction SilentlyContinue
+    Pause
+    Exit
+}
+
 # 4. 打包 ZIP 包
 $ZIP_FULL_PATH = "$DIST_PATH\${PREFIX}_${DATE}.zip"
 Write-Host "正在打包生成 ZIP 文件..." -ForegroundColor Cyan
-Compress-Archive -Path "$INCREMENTAL_PATH\*" -DestinationPath "$ZIP_FULL_PATH" -Force
 
-# 5. 更新时间戳标记
-# 将本次运行的基准时间重命名为上次打包时间，供下次使用
-Move-Item -Path $CURRENT_RUN_TIME_FILE -Destination $TIMESTAMP_FILE -Force
+$ZipSuccess = $false
+try {
+    # 尝试打包，设置 ErrorAction Stop 以便在发生错误时立即跳入 catch
+    Compress-Archive -Path "$INCREMENTAL_PATH\*" -DestinationPath "$ZIP_FULL_PATH" -Force -ErrorAction Stop
+    $ZipSuccess = $true
+} catch {
+    Write-Host "压缩过程发生错误: $($_.Exception.Message)" -ForegroundColor Red
+}
 
-Write-Host "✅ 打包成功：$ZIP_FULL_PATH" -ForegroundColor Green
-Write-Host "请将此 ZIP 包传输至内网，并解压覆盖到内网的 repository 目录中。" -ForegroundColor Cyan
+# ================= 公共清理阶段 =================
+# 无论成功或失败，都清理暂存区
+Remove-Item -Path $INCREMENTAL_PATH -Recurse -Force -ErrorAction SilentlyContinue
+Write-Host "🧹 已清理临时暂存目录。" -ForegroundColor Yellow
+
+# ================= 结果处理阶段 =================
+if ($ZipSuccess) {
+    # 5. 更新时间戳标记
+    # 将本次运行的基准时间重命名为上次打包时间，供下次使用
+    Move-Item -Path $CURRENT_RUN_TIME_FILE -Destination $TIMESTAMP_FILE -Force
+
+    Write-Host "✅ 打包成功：$ZIP_FULL_PATH" -ForegroundColor Green
+    Write-Host "请将此 ZIP 包传输至内网，并解压覆盖到内网的 repository 目录中。" -ForegroundColor Cyan
+} else {
+    # 失败则丢弃本次的防漏扫标记
+    Remove-Item -Path $CURRENT_RUN_TIME_FILE -Force -ErrorAction SilentlyContinue
+    
+    Write-Host "❌ 错误: ZIP 打包失败！请检查磁盘剩余空间或目录权限。" -ForegroundColor Red
+}
 
 Pause

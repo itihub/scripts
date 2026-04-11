@@ -76,6 +76,8 @@ FILE_COUNT=$(find "$INCREMENTAL_PATH" -type f | wc -l)
 if [ "$FILE_COUNT" -eq 0 ]; then
     echo -e "${GREEN}🎉 完美！没有发现需要同步的新增/修改依赖文件。${NC}"
     rm -f "$CURRENT_RUN_TIME_FILE"
+    # 顺手清理一下空目录
+    rm -rf "$INCREMENTAL_PATH"
     exit 0
 fi
 
@@ -89,6 +91,7 @@ VALID_FILE_COUNT=$(find "$INCREMENTAL_PATH" -type f | wc -l)
 if [ "$VALID_FILE_COUNT" -eq 0 ]; then
     echo -e "${GREEN}🎉 清理无用校验文件后，没有需要打包的有效依赖文件。${NC}"
     rm -f "$CURRENT_RUN_TIME_FILE"
+    rm -rf "$INCREMENTAL_PATH"
     exit 0
 fi
 
@@ -100,14 +103,28 @@ echo -e "${CYAN}正在打包生成 ZIP 文件...${NC}"
 # 切换到增量目录内部进行打包，防止解压时带入冗余的顶层文件夹路径
 cd "$INCREMENTAL_PATH" || exit
 
-# 增加打包结果的判断，防止假成功
-if zip -qr "$ZIP_FULL_PATH" .; then
+# 执行打包命令，并将结果状态码记录下来
+zip -qr "$ZIP_FULL_PATH" .
+ZIP_STATUS=$?
+
+# ================= 公共清理阶段 =================
+# 切回基础目录，避免因占用导致删除失败
+cd "$BASE_PATH" || exit
+# 无论成功或失败，都清理暂存区
+rm -rf "$INCREMENTAL_PATH"
+echo -e "${YELLOW}🧹 已清理临时暂存目录。${NC}"
+
+# ================= 结果处理阶段 =================
+if [ $ZIP_STATUS -eq 0 ]; then
     # 5. 更新增量时间戳标记
     mv -f "$CURRENT_RUN_TIME_FILE" "$TIMESTAMP_FILE"
+    
     echo -e "${GREEN}✅ 打包成功：$ZIP_FULL_PATH${NC}"
     echo -e "${CYAN}请将此 ZIP 包传输至内网，并使用 unzip -o 命令覆盖到内网的 repository 目录中。${NC}"
 else
-    echo -e "${RED}❌ 错误: ZIP 打包失败！请检查磁盘剩余空间或目录权限。${NC}"
+    # 失败则丢弃本次的防漏扫标记
     rm -f "$CURRENT_RUN_TIME_FILE"
+    
+    echo -e "${RED}❌ 错误: ZIP 打包失败！请检查磁盘剩余空间或目录权限。${NC}"
     exit 1
 fi
