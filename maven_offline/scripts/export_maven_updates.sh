@@ -33,6 +33,7 @@ readonly CURRENT_RUN_TIME_FILE="$BASE_PATH/.current_run_time"
 # ================= 资源清理与异常捕获 =================
 # 无论脚本正常退出还是异常终止，都将执行清理操作
 cleanup() {
+    # 捕获退出状态码，防止被后续命令覆盖
     local exit_code=$?
     echo -e "${YELLOW}🧹 执行清理生命周期...${NC}"
     rm -rf "$INCREMENTAL_PATH"
@@ -67,7 +68,7 @@ readonly run_date=$(date +%Y%m%d_%H%M%S)
 cd "$REPOSITORY_PATH"
 
 # 智能增量判断
-local prefix="full"
+prefix="full"
 if [ -f "$TIMESTAMP_FILE" ]; then
     echo -e "${YELLOW}检测到上次打包时间戳记录，提取新增量文件...${NC}"
     prefix="update"
@@ -78,7 +79,6 @@ else
 fi
 
 # 检查是否有文件变更
-local file_count
 file_count=$(find "$INCREMENTAL_PATH" -type f | wc -l)
 
 if [ "$file_count" -eq 0 ]; then
@@ -88,13 +88,13 @@ if [ "$file_count" -eq 0 ]; then
 fi
 
 echo -e "${CYAN}共发现 $file_count 个变更文件，正在清理冗余校验文件...${NC}"
-find "$INCREMENTAL_PATH" -type f \( -name "*.sha1" -o -name "*.md5" -o -name "*.lastUpdated" -o -name "_remote.repositories" \) -exec rm -f {} + 2>/dev/null || true
+# 修复：去掉了对 *.sha1 和 *.md5 的清理，保留离线必须的完整性校验文件
+find "$INCREMENTAL_PATH" -type f \( -name "*.lastUpdated" -o -name "_remote.repositories" \) -exec rm -f {} + 2>/dev/null || true
 
-local valid_file_count
 valid_file_count=$(find "$INCREMENTAL_PATH" -type f | wc -l)
 
 if [ "$valid_file_count" -eq 0 ]; then
-    echo -e "${GREEN}🎉 清理无用校验文件后，无有效依赖文件需打包。${NC}"
+    echo -e "${GREEN}🎉 清理无用文件后，无有效依赖文件需打包。${NC}"
     rm -f "$CURRENT_RUN_TIME_FILE"
     exit 0
 fi
