@@ -74,7 +74,7 @@ try {
     }
 
     # 清理无用文件
-    $cleanExtensions = @("*.sha1", "*.md5", "*.lastUpdated", "_remote.repositories")
+    $cleanExtensions = @("*.lastUpdated", "_remote.repositories")
     foreach ($ext in $cleanExtensions) {
         Get-ChildItem -Path $IncrementalPath -Filter $ext -Recurse -File -ErrorAction Ignore | Remove-Item -Force
     }
