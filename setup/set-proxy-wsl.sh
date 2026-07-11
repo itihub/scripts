@@ -6,7 +6,7 @@ CLASH_HTTP_PORT="7890"
 CLASH_SOCKS5_PORT="7890" 
 
 # 动态获取 WSL 内部虚拟网关 IP
-WSL_GATEWAY_IP=$(cat /etc/resolv.conf | grep nameserver | awk '{print $2}')
+WSL_GATEWAY_IP=$(ip route show default | awk '{print $3}' | head -n 1)
 
 if [ -n "$WSL_GATEWAY_IP" ]; then
     export HTTP_PROXY="http://${WSL_GATEWAY_IP}:${CLASH_HTTP_PORT}"
